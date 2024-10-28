@@ -1,0 +1,73 @@
+POST http://localhost:80/apps/run
+content-type: application/json
+
+{
+    "app_release_uuid": "421ba7f4-97ad-4c5d-8fbc-e176513516ba",
+    "user_id": 0,
+    "preferred_dcs": null,
+    "ws_conn": {
+        "id": "test-ws-conn-id",
+        "consumer_id": "test-ws-consumer-id"
+    }
+}
+###
+
+POST http://localhost:80/apps/pause
+content-type: application/json
+
+{
+    "container": {
+        "node_id": "3KXM:A6UU:LLYL:UYPH:ZWH2:AJ37:G5UL:2UZC:653T:BFLZ:R5OD:DOSR",
+        "id": "5baa233e317a0704d86a3133ae91b1a0566830476020912468efd09694eac2a9"
+    }
+}
+###
+
+POST http://localhost:80/apps/resume
+content-type: application/json
+
+{
+    "container": {
+        "node_id": "3KXM:A6UU:LLYL:UYPH:ZWH2:AJ37:G5UL:2UZC:653T:BFLZ:R5OD:DOSR",
+        "id": "5baa233e317a0704d86a3133ae91b1a0566830476020912468efd09694eac2a9"
+    },
+    "ws_conn": {
+        "id": "test-ws-conn-id",
+        "consumer_id": "test-ws-consumer-id"
+    }
+}
+###
+
+POST http://localhost:80/apps/stop
+content-type: application/json
+
+{
+    "container": {
+        "node_id": "3KXM:A6UU:LLYL:UYPH:ZWH2:AJ37:G5UL:2UZC:653T:BFLZ:R5OD:DOSR",
+        "id": "5baa233e317a0704d86a3133ae91b1a0566830476020912468efd09694eac2a9"
+    }
+}
+###
+
+GET http://localhost:80/apps/706b6b79-ae7a-44d5-badb-deb79ed3db5c
+###
+
+POST http://localhost:80/apps/search/acl
+content-type: application/json
+
+{
+    "app_name": "har",
+    "kids_mode": true
+}
+###
+
+POST http://localhost:80/apps/search
+content-type: application/json
+
+{
+    "app_name": "broken",
+    "kids_mode": false,
+    "offset": 0,
+    "limit": 10
+}
+###

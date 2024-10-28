@@ -1,0 +1,28 @@
+{
+    "name": "yag-appsvc",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "runArgs": [
+        "--name=yag-appsvc",
+        "--add-host=sqldb.yag.dc:host-gateway",
+        "--add-host=jukeboxsvc.yag.dc:host-gateway",
+        "--env-file=${localWorkspaceFolder}/.devcontainer/.env",
+        "--env-file=${localWorkspaceFolder}/.devcontainer/secret.env"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.black-formatter",
+                "humao.rest-client"
+            ]
+        }
+    },
+    "postCreateCommand": ".devcontainer/post-create.sh",
+    "appPort": [
+        "8085:80"
+    ],
+    "mounts": [
+        "source=${env:HOME}${env:USERPROFILE}/.ssh,target=/home/vscode/.ssh,type=bind"
+    ]
+}
