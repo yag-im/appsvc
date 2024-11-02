@@ -19,25 +19,25 @@ class TestBizApp:
 
         # user with 1 known DC
         mock_query.return_value.filter.return_value.first.return_value = UsersDcsDAO(
-            user_id=TEST_USER_ID, dcs={"us-west-1": 1.0}
+            user_id=TEST_USER_ID, dcs={"us-west-1": [1.0]}
         )
         assert get_preferred_dcs(TEST_USER_ID, TEST_DATA_CENTERS) == ["us-east-1", "eu-central-1", "us-west-1"]
 
         # user from West US with 2 known DCs
         # TODO: make it smart and don't go further to the East if West is already the best)
         mock_query.return_value.filter.return_value.first.return_value = UsersDcsDAO(
-            user_id=TEST_USER_ID, dcs={"us-west-1": 1.0, "us-east-1": 2.0}
+            user_id=TEST_USER_ID, dcs={"us-west-1": [1.0], "us-east-1": [2.0]}
         )
         assert get_preferred_dcs(TEST_USER_ID, TEST_DATA_CENTERS) == ["eu-central-1", "us-west-1", "us-east-1"]
 
         # user from EU with 2 known DCs
         mock_query.return_value.filter.return_value.first.return_value = UsersDcsDAO(
-            user_id=TEST_USER_ID, dcs={"us-west-1": 2.0, "us-east-1": 1.0}
+            user_id=TEST_USER_ID, dcs={"us-west-1": [2.0], "us-east-1": [1.0]}
         )
         assert get_preferred_dcs(TEST_USER_ID, TEST_DATA_CENTERS) == ["eu-central-1", "us-east-1", "us-west-1"]
 
         # user with 3 known DCs
         mock_query.return_value.filter.return_value.first.return_value = UsersDcsDAO(
-            user_id=TEST_USER_ID, dcs={"us-west-1": 2.0, "us-east-1": 1.0, "eu-central-1": 1.5}
+            user_id=TEST_USER_ID, dcs={"us-west-1": [2.0], "us-east-1": [1.0], "eu-central-1": [1.5]}
         )
         assert get_preferred_dcs(TEST_USER_ID, TEST_DATA_CENTERS) == ["us-east-1", "eu-central-1", "us-west-1"]
