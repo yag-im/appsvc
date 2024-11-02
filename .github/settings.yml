@@ -1,4 +1,4 @@
 _extends: .github:settings.yml
 repository:
   name: appsvc
-  description: CRUD operations service for apps
+  description: apps management service

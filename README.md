@@ -1,16 +1,17 @@
 # appsvc
 
-appsvc is an apps management service
+appsvc is an apps management service. Implements logic for apps search, start/stop, pause/resume.
 
-## release a new version
+## Development
 
-Inside a devcontainer:
+### Prerequisite
 
-    make lint
-    make build
+Create *.devcontainer/secrets.env* file:
 
-Outside of a devcontainer:
+    SQLDB_PASSWORD=***VALUE***
 
-    make docker-build
-    make docker-run
-    make docker-pub TAG=0.0.1
+The following devcontainers should be up and running:
+
+    sqldb
+
+Then simply open this project in any IDE that supports devcontainers (VSCode is recommended).

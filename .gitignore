@@ -22,4 +22,4 @@ venv.bak/
 .vscode
 dist
 
-secret.env
+secrets.env
