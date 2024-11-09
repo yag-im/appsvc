@@ -64,6 +64,7 @@ RUNNERS_CONF = json.loads(os.environ["RUNNERS_CONF"])
 STREAMD_REQS = json.loads(os.environ["STREAMD_REQS"])
 
 ESRB_RATING_M_ID = 11
+MAX_GOOD_RTT = 0.05  # 50 ms
 
 log = logging.getLogger("appsvc")
 
@@ -168,19 +169,17 @@ def get_preferred_dcs(user_id: int, known_dcs: list[str]) -> list[str]:
 
     known_dcs: DCs sorted from West to East (geographically)
 
-    # TODO: do not try new DCs if fastest rtt is < 50
+    When there is a DC with a known max good rtt - return this DC as preferred,
+    no need to check other DCs as they would be worse
+
     # TODO: do not go further to the East if current DC is slower than the previous DC
     """
-    user_dcs_dao = sqldb.session.query(UsersDcsDAO).filter(UsersDcsDAO.user_id == user_id).first()
-    if not user_dcs_dao:
-        return known_dcs
-    user_dcs = sorted(user_dcs_dao.dcs, key=lambda k: median(user_dcs_dao.dcs[k]))
-    if len(user_dcs) != len(known_dcs):
-        known_dcs.reverse()
-        for dc in known_dcs:
-            if dc not in user_dcs:
-                user_dcs.insert(0, dc)
-    return user_dcs
+    # make preferred_dcs = {W: .05, E: .051, C: .052}
+    preferred_dcs = {k: MAX_GOOD_RTT + (ix) / 1000 for ix, k in enumerate(known_dcs)}
+    user_dcs: dict = sqldb.session.query(UsersDcsDAO).filter(UsersDcsDAO.user_id == user_id).first().dcs
+    for k, v in user_dcs.items():
+        preferred_dcs[k] = median(v)
+    return sorted(preferred_dcs, key=lambda k: preferred_dcs[k])
 
 
 @log_input_output
