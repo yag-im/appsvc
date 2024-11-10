@@ -13,6 +13,10 @@ TEST_DATA_CENTERS = ["us-west-1", "us-east-1", "eu-central-1"]
 class TestBizApp:
     @patch("appsvc.biz.app.sqldb.session.query")
     def test_get_preferred_dcs(self, mock_query):
+        # new user
+        mock_query.return_value.filter.return_value.first.return_value = None
+        assert get_preferred_dcs(TEST_USER_ID, TEST_DATA_CENTERS) == TEST_DATA_CENTERS
+
         # user with 1 known DC
         mock_query.return_value.filter.return_value.first.return_value = UsersDcsDAO(
             user_id=TEST_USER_ID, dcs={"us-west-1": [1.0, 1.3]}

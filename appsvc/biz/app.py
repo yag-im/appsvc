@@ -174,10 +174,13 @@ def get_preferred_dcs(user_id: int, known_dcs: list[str]) -> list[str]:
 
     # TODO: do not go further to the East if current DC is slower than the previous DC
     """
+    user_dcs = sqldb.session.query(UsersDcsDAO).filter(UsersDcsDAO.user_id == user_id).first()
+    if not user_dcs:
+        # new user
+        return known_dcs
     # make preferred_dcs = {W: .05, E: .051, C: .052}
     preferred_dcs = {k: MAX_GOOD_RTT + (ix) / 1000 for ix, k in enumerate(known_dcs)}
-    user_dcs: dict = sqldb.session.query(UsersDcsDAO).filter(UsersDcsDAO.user_id == user_id).first().dcs
-    for k, v in user_dcs.items():
+    for k, v in user_dcs.dcs.items():
         preferred_dcs[k] = median(v)
     return sorted(preferred_dcs, key=lambda k: preferred_dcs[k])
 
