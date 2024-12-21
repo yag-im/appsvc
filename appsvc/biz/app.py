@@ -72,7 +72,7 @@ log = logging.getLogger("appsvc")
 def get_app_release(release_uuid: str) -> AppReleaseDetails:
     # support "human-readable" urls (using games.releases.id instead of uuid)
     filter_by_field = AppReleaseDAO.uuid if len(release_uuid) == 36 else AppReleaseDAO.id
-    filter_by = [filter_by_field == release_uuid]
+    filter_by = [filter_by_field == release_uuid, AppReleaseDAO.is_visible.is_(True)]
     r = AppReleaseDAO.query.filter(*filter_by).first()
     if not r:
         raise AppReleaseNotFoundException
