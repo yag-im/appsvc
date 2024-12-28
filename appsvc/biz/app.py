@@ -59,7 +59,6 @@ DEFAULT_HW_REQ_MEMORY_SHARED = None
 DEFAULT_HW_REQ_NANOCPUS = 1 * 1_000_000_000  # 1 CPU core
 
 DATA_CENTERS = json.loads(os.environ["DATA_CENTERS"])
-JUKEBOX_CONTAINER_IMAGE_REV = os.environ["JUKEBOX_CONTAINER_IMAGE_REV"]
 RUNNERS_CONF = json.loads(os.environ["RUNNERS_CONF"])
 STREAMD_REQS = json.loads(os.environ["STREAMD_REQS"])
 
@@ -221,7 +220,6 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
                 color_bits=color_bits,
             ),
             container=RunContainerRequestDTO.Requirements.ContainerSpecs(
-                image_rev=JUKEBOX_CONTAINER_IMAGE_REV,
                 runner=RunContainerRequestDTO.Requirements.ContainerSpecs.Runner(
                     name=runner_name, ver=runner_ver, window_system=runner_window_system
                 ),
