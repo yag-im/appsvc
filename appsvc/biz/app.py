@@ -177,8 +177,8 @@ def get_preferred_dcs(user_id: int, known_dcs: list[str]) -> list[str]:
     if not user_dcs:
         # new user
         return known_dcs
-    # make preferred_dcs = {W: .05, E: .051, C: .052}
-    preferred_dcs = {k: MAX_GOOD_RTT + (ix) / 1000 for ix, k in enumerate(known_dcs)}
+    # make default preferred_dcs = {W: .05, E: .051, C: .052}
+    preferred_dcs = {k: MAX_GOOD_RTT + (ix / 1000) for ix, k in enumerate(known_dcs)}
     for k, v in user_dcs.dcs.items():
         preferred_dcs[k] = median(v)
     return sorted(preferred_dcs, key=lambda k: preferred_dcs[k])
