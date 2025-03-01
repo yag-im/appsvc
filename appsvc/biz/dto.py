@@ -112,10 +112,18 @@ class AppReleaseDetails:
         alternative_name: str
         slug: str
 
+    @dataclass
+    class Distro:
+        files: list[str]
+        format: str
+        url: str
+        Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+
     addl_artifacts: dict
     alternative_names: list[str]
     app_reqs: AppReqs
     companies: list[Company]
+    distro: Distro
     esrb_rating: int
     igdb: IgdbDescr
     id: int

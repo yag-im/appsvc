@@ -88,6 +88,7 @@ def get_app_release(release_uuid: str) -> AppReleaseDetails:
         alternative_names=r.game.alternative_names,
         app_reqs=AppReleaseDetails.AppReqs.Schema().load(r.app_reqs),
         companies=r.companies,
+        distro=AppReleaseDetails.Distro.Schema().load(r.distro),
         esrb_rating=r.game.esrb_rating,
         id=r.id,
         igdb=AppReleaseDetails.IgdbDescr.Schema().load(r.game.igdb),

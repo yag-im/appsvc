@@ -49,7 +49,7 @@ content-type: application/json
 }
 ###
 
-GET http://localhost:80/apps/706b6b79-ae7a-44d5-badb-deb79ed3db5c
+GET http://localhost:80/apps/201
 ###
 
 POST http://localhost:80/apps/search/acl
