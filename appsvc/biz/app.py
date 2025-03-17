@@ -302,12 +302,12 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
     if req.kids_mode:
         q_base = q_base.filter((AppDAO.esrb_rating < ESRB_RATING_M_ID) | (AppDAO.esrb_rating.is_(None)))
     if req.order_by == SearchAppsOrderBy.TS_ADDED:
-        order_by = AppReleaseDAO.ts_added.desc()
+        order_by = [AppReleaseDAO.ts_added.desc()]
     elif req.order_by == SearchAppsOrderBy.YEAR_RELEASED:
-        order_by = AppReleaseDAO.year_released.desc()
+        order_by = [AppReleaseDAO.year_released.desc(), AppReleaseDAO.name.asc()]
     else:
-        order_by = AppReleaseDAO.name.asc()
-    res = q_base.order_by(order_by).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
+        order_by = [AppReleaseDAO.name.asc()]
+    res = q_base.order_by(*order_by).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
     return [
         SearchAppsResponseItem(
             cover_image_id=(
