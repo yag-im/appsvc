@@ -90,7 +90,7 @@ class AppReleaseDetails:
 
     @dataclass
     class GameRefs:
-        ag_id: t.Optional[int]
+        ag_id: t.Optional[str]
         lutris_id: t.Optional[str]
         mg_id: t.Optional[int]
         pcgw_id: t.Optional[str]
