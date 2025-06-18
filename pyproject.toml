@@ -21,6 +21,8 @@ marshmallow-dataclass = "^8.6.0"
 opentelemetry-distro = "*"
 opentelemetry-exporter-otlp = "*"
 psycopg2 = "^2.9.9"
+# for unions in marshmallow-dataclass
+typeguard = "*"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "*"
