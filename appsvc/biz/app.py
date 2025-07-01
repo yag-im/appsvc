@@ -62,6 +62,7 @@ DATA_CENTERS = json.loads(os.environ["DATA_CENTERS"])
 RUNNERS_CONF = json.loads(os.environ["RUNNERS_CONF"])
 STREAMD_REQS = json.loads(os.environ["STREAMD_REQS"])
 
+ESRB_RATING_T_ID = 10
 ESRB_RATING_M_ID = 11
 MAX_GOOD_RTT = 0.05  # 50 ms
 
@@ -283,7 +284,7 @@ def search_apps_acl(req: SearchAppsAclRequestDTO) -> list[str]:
         q_base = (
             q_base.join(AppReleaseDAO.game)
             .options(contains_eager(AppReleaseDAO.game))
-            .filter((AppDAO.esrb_rating < ESRB_RATING_M_ID) | (AppDAO.esrb_rating.is_(None)))
+            .filter((AppDAO.esrb_rating < ESRB_RATING_T_ID) | (AppDAO.esrb_rating.is_(None)))
         )
     res = [ar[0] for ar in q_base.with_entities(AppReleaseDAO.name).limit(APPS_ACL_SEARCH_LIMIT).all()]
     return res
@@ -300,7 +301,7 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
             | func.array_to_string(AppDAO.alternative_names, ",").ilike(app_name_mask),
         )
     if req.kids_mode:
-        q_base = q_base.filter((AppDAO.esrb_rating < ESRB_RATING_M_ID) | (AppDAO.esrb_rating.is_(None)))
+        q_base = q_base.filter((AppDAO.esrb_rating < ESRB_RATING_T_ID) | (AppDAO.esrb_rating.is_(None)))
     if req.order_by == SearchAppsOrderBy.TS_ADDED:
         order_by = [AppReleaseDAO.ts_added.desc()]
     elif req.order_by == SearchAppsOrderBy.YEAR_RELEASED:
