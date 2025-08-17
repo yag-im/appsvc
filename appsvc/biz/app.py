@@ -200,10 +200,9 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
 
     # turn e.g. 320x200 to 640x400 as xorg wouldn't start
     screen_height = app_release.app_reqs.screen_height
-    if screen_height < MIN_SCREEN_HEIGHT:
-        screen_height *= 2
     screen_width = app_release.app_reqs.screen_width
-    if screen_width < MIN_SCREEN_WIDTH:
+    if screen_height < MIN_SCREEN_HEIGHT or screen_width < MIN_SCREEN_WIDTH:
+        screen_height *= 2
         screen_width *= 2
 
     # same for color-depth: set min/max allowed
@@ -211,6 +210,11 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
         MAX_COLOR_BITS,
         max((app_release.app_reqs.color_bits or DEFAULT_APP_REQ_COLOR_BITS), MIN_COLOR_BITS),
     )
+
+    # wine fix (removes transparent square around the cursor in many games):
+    if app_release.runner.name == "wine":
+        if color_bits == 16:
+            color_bits = 24
 
     run_container_req: RunContainerRequestDTO = RunContainerRequestDTO(
         app_descr=RunContainerRequestDTO.AppDescr(slug=app_release.igdb.slug, release_uuid=app_release.uuid),
