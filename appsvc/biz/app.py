@@ -58,9 +58,9 @@ DEFAULT_HW_REQ_MEMORY = 1 * 1024 * 1024 * 1024  # 1GB
 DEFAULT_HW_REQ_MEMORY_SHARED = None
 DEFAULT_HW_REQ_NANOCPUS = 1 * 1_000_000_000  # 1 CPU core
 
-DATA_CENTERS = json.loads(os.environ["DATA_CENTERS"])
-RUNNERS_CONF = json.loads(os.environ["RUNNERS_CONF"])
-STREAMD_REQS = json.loads(os.environ["STREAMD_REQS"])
+DATA_CENTERS: list[str] = json.loads(os.environ["DATA_CENTERS"])
+RUNNERS_CONF: dict = json.loads(os.environ["RUNNERS_CONF"])
+STREAMD_REQS: dict = json.loads(os.environ["STREAMD_REQS"])
 
 ESRB_RATING_T_ID = 10
 ESRB_RATING_M_ID = 11
@@ -127,11 +127,11 @@ def get_hw_reqs(
     hw_req_igpu = (
         app_release.app_reqs.hw.igpu or STREAMD_REQS.get("igpu") or runner_conf.get("igpu") or DEFAULT_HW_REQ_IGPU
     )
-    hw_req_memory = (
-        app_release.app_reqs.hw.memory
-        + STREAMD_REQS.get("memory", 0)
-        + runner_conf.get("memory", 0)
-        + DEFAULT_HW_REQ_MEMORY
+    hw_req_memory = max(
+        app_release.app_reqs.hw.memory,
+        STREAMD_REQS.get("memory", 0),
+        runner_conf.get("memory", 0),
+        DEFAULT_HW_REQ_MEMORY,
     )
     hw_req_memory_shared = (
         app_release.app_reqs.hw.memory_shared
