@@ -324,6 +324,8 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
             name=r.name,
             slug=r.game.igdb["slug"],
             year_released=r.year_released,
+            platform=r.platform.slug,
+            distro_format=r.distro["format"],
         )
         for r in res
     ]
