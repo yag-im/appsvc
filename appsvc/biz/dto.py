@@ -190,6 +190,7 @@ class SearchAppsOrderBy(StrEnum):
 @dataclass
 class SearchAppsRequestDTO:
     app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
+    publisher_name: t.Optional[str] = field(default=None)
     kids_mode: bool = False
     offset: int = 0
     limit: int = 100
@@ -219,7 +220,7 @@ class SearchAppsResponseDTO:
 @dataclass
 class SearchAppsAclRequestDTO:
     app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
-    company_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
+    publisher_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
     kids_mode: bool = False
     Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
