@@ -227,6 +227,7 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
                 screen_height=screen_height,
                 screen_width=screen_width,
                 color_bits=color_bits,
+                loading_duration=app_release.app_reqs.loading_duration,
             ),
             container=RunContainerRequestDTO.Requirements.ContainerSpecs(
                 runner=RunContainerRequestDTO.Requirements.ContainerSpecs.Runner(

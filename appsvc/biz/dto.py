@@ -86,6 +86,7 @@ class AppReleaseDetails:
         hw: HwReqs = field(default_factory=HwReqs)
         midi: bool = False
         ua: UaReqs = field(default_factory=UaReqs)
+        loading_duration: t.Optional[int] = 0
         Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
     @dataclass
