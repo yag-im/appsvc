@@ -109,6 +109,7 @@ def get_app_release(release_uuid: str) -> AppReleaseDetails:
         ts_added=r.ts_added,
         uuid=r.uuid,
         year_released=r.year_released,
+        tags=r.game.tags,
     )
 
 
@@ -378,6 +379,7 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
             year_released=r.year_released,
             platform=r.platform.slug,
             distro_format=r.distro["format"],
+            tags=r.game.tags,
         )
         for r in res
     ]

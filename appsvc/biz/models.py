@@ -30,6 +30,7 @@ class AppDAO(sqldb.Model):
     platforms = Column(ARRAY(Integer))
     refs = Column(JSONB)
     short_descr = Column(String)
+    tags = Column(ARRAY(String))
 
 
 class AppCompanyDAO(sqldb.Model):
