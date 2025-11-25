@@ -39,6 +39,7 @@ from appsvc.biz.models import (
 from appsvc.biz.sqldb import sqldb
 from appsvc.services import jukeboxsvc
 from appsvc.services.dto.jukeboxsvc import (
+    AppPlatform,
     RunContainerRequestDTO,
     RunContainerResponseDTO,
     VideoEnc,
@@ -221,7 +222,9 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
             color_bits = 24
 
     run_container_req: RunContainerRequestDTO = RunContainerRequestDTO(
-        app_descr=RunContainerRequestDTO.AppDescr(slug=app_release.igdb.slug, release_uuid=app_release.uuid),
+        app_descr=RunContainerRequestDTO.AppDescr(
+            slug=app_release.igdb.slug, release_uuid=app_release.uuid, platform=AppPlatform(app_release.platform.slug)
+        ),
         reqs=RunContainerRequestDTO.Requirements(
             app=RunContainerRequestDTO.Requirements.AppRequirements(
                 midi=app_release.app_reqs.midi or DEFAULT_APP_REQ_MIDI,
