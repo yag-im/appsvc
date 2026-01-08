@@ -133,21 +133,21 @@ def get_hw_reqs(
         app_release.app_reqs.hw.igpu or STREAMD_REQS.get("igpu") or runner_conf.get("igpu") or DEFAULT_HW_REQ_IGPU
     )
     hw_req_memory = max(
-        app_release.app_reqs.hw.memory or 0,
-        STREAMD_REQS.get("memory", 0),
-        runner_conf.get("memory", 0),
+        (app_release.app_reqs.hw.memory or 0),
+        (STREAMD_REQS.get("memory", 0) or 0),
+        (runner_conf.get("memory", 0) or 0),
         DEFAULT_HW_REQ_MEMORY,
     )
     hw_req_memory_shared = (
         (app_release.app_reqs.hw.memory_shared or 0)
-        + STREAMD_REQS.get("memory_shared", 0)
-        + runner_conf.get("memory_shared", 0)
+        + (STREAMD_REQS.get("memory_shared", 0) or 0)
+        + (runner_conf.get("memory_shared", 0) or 0)
     ) or DEFAULT_HW_REQ_MEMORY_SHARED
 
     hw_req_nanocpus = (
         (app_release.app_reqs.hw.nanocpus or 0)
-        + STREAMD_REQS.get("nanocpus", 0)
-        + runner_conf.get("nanocpus", 0)
+        + (STREAMD_REQS.get("nanocpus", 0) or 0)
+        + (runner_conf.get("nanocpus", 0) or 0)
         + DEFAULT_HW_REQ_NANOCPUS
     )
 
