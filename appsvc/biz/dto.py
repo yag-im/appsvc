@@ -24,6 +24,7 @@ class ContainerOpDescr:
 @dataclass
 class ContainerDescr(ContainerOpDescr):
     region: DcRegion = field(metadata={"by_value": True})
+    cpuset_cpus: list[int]
 
 
 @dataclass

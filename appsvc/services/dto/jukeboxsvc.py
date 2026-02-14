@@ -114,6 +114,7 @@ class RunContainerResponseDTO:
     @dataclass
     class ContainerDescr:
         id: str
+        cpuset_cpus: list[int]
 
     node: NodeDescr
     container: ContainerDescr

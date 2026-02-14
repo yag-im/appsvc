@@ -4,8 +4,13 @@ import os
 from statistics import median
 
 from sqlalchemy import (
+    ColumnElement,
+    Integer,
+    cast,
+    exists,
     func,
-    text,
+    lateral,
+    select,
 )
 from sqlalchemy.orm import contains_eager
 
@@ -70,7 +75,17 @@ ESRB_RATING_T_ID = 10
 ESRB_RATING_M_ID = 11
 MAX_GOOD_RTT = 0.05  # 50 ms
 
+GENRE_EDUCATIONAL_ID = 1000000  # custom genre for educational games (suitable for kids)
+
 log = logging.getLogger("appsvc")
+
+
+def kids_mode_filter_expr() -> ColumnElement[bool]:
+    return (
+        (AppDAO.esrb_rating < ESRB_RATING_T_ID)
+        # | (AppDAO.esrb_rating.is_(None))
+        | (AppDAO.genres.contains([GENRE_EDUCATIONAL_ID]))
+    )
 
 
 def get_app_release(release_uuid: str) -> AppReleaseDetails:
@@ -257,6 +272,7 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
             id=run_container_res.container.id,
             node_id=run_container_res.node.id,
             region=run_container_res.node.region,
+            cpuset_cpus=run_container_res.container.cpuset_cpus,
         ),
     )
 
@@ -294,52 +310,35 @@ def search_apps_acl(req: SearchAppsAclRequestDTO) -> list[str]:
         q_base = q_base.filter(AppReleaseDAO.name.ilike(f"%{req.app_name}%"))
     if req.kids_mode:
         q_base = (
-            q_base.join(AppReleaseDAO.game)
-            .options(contains_eager(AppReleaseDAO.game))
-            .filter((AppDAO.esrb_rating < ESRB_RATING_T_ID) | (AppDAO.esrb_rating.is_(None)))
+            q_base.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game)).filter(kids_mode_filter_expr())
         )
     res = [ar[0] for ar in q_base.with_entities(AppReleaseDAO.name).limit(APPS_ACL_SEARCH_LIMIT).all()]
     return res
 
 
-def search_by_publisher(req: SearchAppsRequestDTO, order_sql: str) -> list[AppReleaseDAO]:
-    # Use a raw SQL query with LATERAL jsonb_array_elements to reliably unnest the companies JSONB
-    # and join to games.companies to filter by publisher name.
+def search_by_publisher(req: SearchAppsRequestDTO, order_by: list) -> list[AppReleaseDAO]:
     company_mask = f"%{req.publisher_name}%"
-    sql_parts = [
-        "SELECT r.id",
-        "FROM games.releases r",
-        "JOIN games.games g ON r.game_id = g.id",
-        "JOIN LATERAL jsonb_array_elements(r.companies) elem ON true",
-        "JOIN games.companies gc ON (elem->>'id')::int = gc.id",
-        "WHERE r.is_visible IS TRUE",
-        "AND (elem->>'publisher') = 'true'",
-        "AND gc.name ILIKE :company_mask",
-    ]
-    params: dict[str, str | int] = {"company_mask": company_mask}
-    if req.kids_mode:
-        sql_parts.append(f"AND ((g.esrb_rating < {ESRB_RATING_T_ID}) OR (g.esrb_rating IS NULL))")
 
-    # ORDER BY using alias 'r' to match releases table alias
-    sql_parts.append(f"ORDER BY {order_sql}")
-    sql_parts.append("OFFSET :offset LIMIT :limit")
-    params["offset"] = req.offset
-    params["limit"] = min(APPS_SEARCH_LIMIT, req.limit)
-    sql = "\n".join(sql_parts)
+    elem = lateral(func.jsonb_array_elements(AppReleaseDAO.companies).table_valued("value")).alias("elem")
+    elem_company_id_txt = elem.c.value.op("->>")("id")
+    elem_is_publisher_txt = elem.c.value.op("->>")("publisher")
 
-    ids_res = sqldb.session.execute(text(sql), params).fetchall()
-    ids = [r[0] for r in ids_res]
-    if not ids:
-        return []
-
-    orm_q = (
-        AppReleaseDAO.query.join(AppReleaseDAO.game)
-        .options(contains_eager(AppReleaseDAO.game))
-        .filter(AppReleaseDAO.id.in_(ids))
+    publisher_exists = exists(
+        select(1)
+        .select_from(elem)
+        .join(AppCompanyDAO, AppCompanyDAO.id == cast(elem_company_id_txt, Integer))
+        .where(elem_is_publisher_txt == "true")
+        .where(AppCompanyDAO.name.ilike(company_mask))
+        .correlate(AppReleaseDAO)
     )
-    orm_res = orm_q.all()
-    orm_map = {r.id: r for r in orm_res}
-    return [orm_map[i] for i in ids if i in orm_map]
+
+    q = AppReleaseDAO.query.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game))
+    q = q.filter(AppReleaseDAO.is_visible.is_(True))
+    q = q.filter(publisher_exists)
+    if req.kids_mode:
+        q = q.filter(kids_mode_filter_expr())
+
+    return q.order_by(*order_by).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
 
 
 def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
@@ -353,19 +352,16 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
             | func.array_to_string(AppDAO.alternative_names, ",").ilike(app_name_mask),
         )
     if req.kids_mode:
-        q_base = q_base.filter((AppDAO.esrb_rating < ESRB_RATING_T_ID) | (AppDAO.esrb_rating.is_(None)))
+        q_base = q_base.filter(kids_mode_filter_expr())
     if req.order_by == SearchAppsOrderBy.TS_ADDED:
         order_by = [AppReleaseDAO.ts_added.desc()]
-        order_sql = "r.ts_added DESC"
     elif req.order_by == SearchAppsOrderBy.YEAR_RELEASED:
         order_by = [AppReleaseDAO.year_released.desc(), AppReleaseDAO.ts_added.desc()]
-        order_sql = "r.year_released DESC, r.ts_added DESC"
     else:
         order_by = [AppReleaseDAO.name.asc()]
-        order_sql = "r.name ASC"
     res: list[AppReleaseDAO]
     if req.publisher_name:
-        res = search_by_publisher(req, order_sql)
+        res = search_by_publisher(req, order_by)
     else:
         res = q_base.order_by(*order_by).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
 

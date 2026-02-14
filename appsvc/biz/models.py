@@ -1,5 +1,4 @@
 from sqlalchemy import (
-    ARRAY,
     TIMESTAMP,
     BigInteger,
     Boolean,
@@ -8,7 +7,10 @@ from sqlalchemy import (
     Integer,
     String,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import (
+    ARRAY,
+    JSONB,
+)
 from sqlalchemy.orm import relationship
 
 from appsvc.biz.sqldb import sqldb
