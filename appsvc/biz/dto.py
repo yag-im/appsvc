@@ -1,4 +1,3 @@
-import datetime
 import typing as t
 from dataclasses import field
 from enum import StrEnum
@@ -139,8 +138,8 @@ class AppReleaseDetails:
     refs: GameRefs
     runner: Runner
     short_descr: str
-    ts_added: datetime.datetime
     uuid: str
+    uuidv4: str | None
     year_released: int
     tags: list[str] | None = None
     Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name

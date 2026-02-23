@@ -122,10 +122,10 @@ def get_app_release(release_uuid: str) -> AppReleaseDetails:
         refs=AppReleaseDetails.GameRefs.Schema().load(r.game.refs),
         runner=AppReleaseDetails.Runner.Schema().load(r.runner),
         short_descr=r.game.short_descr,
-        ts_added=r.ts_added,
         uuid=r.uuid,
         year_released=r.year_released,
         tags=r.game.tags,
+        uuidv4=r.uuidv4,
     )
 
 
@@ -238,7 +238,9 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
 
     run_container_req: RunContainerRequestDTO = RunContainerRequestDTO(
         app_descr=RunContainerRequestDTO.AppDescr(
-            slug=app_release.igdb.slug, release_uuid=app_release.uuid, platform=AppPlatform(app_release.platform.slug)
+            slug=app_release.igdb.slug,
+            release_uuid=app_release.uuidv4 or app_release.uuid,
+            platform=AppPlatform(app_release.platform.slug),
         ),
         reqs=RunContainerRequestDTO.Requirements(
             app=RunContainerRequestDTO.Requirements.AppRequirements(
@@ -354,9 +356,9 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
     if req.kids_mode:
         q_base = q_base.filter(kids_mode_filter_expr())
     if req.order_by == SearchAppsOrderBy.TS_ADDED:
-        order_by = [AppReleaseDAO.ts_added.desc()]
+        order_by = [AppReleaseDAO.uuid.desc()]  # uuidv7 reflects creation time
     elif req.order_by == SearchAppsOrderBy.YEAR_RELEASED:
-        order_by = [AppReleaseDAO.year_released.desc(), AppReleaseDAO.ts_added.desc()]
+        order_by = [AppReleaseDAO.year_released.desc(), AppReleaseDAO.uuid.desc()]
     else:
         order_by = [AppReleaseDAO.name.asc()]
     res: list[AppReleaseDAO]

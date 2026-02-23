@@ -1,5 +1,4 @@
 from sqlalchemy import (
-    TIMESTAMP,
     BigInteger,
     Boolean,
     Column,
@@ -68,9 +67,9 @@ class AppReleaseDAO(sqldb.Model):
     platform = relationship(AppPlatformDAO)
     platform_id = Column(Integer, ForeignKey(AppPlatformDAO.id))
     runner = Column(JSONB)
-    ts_added = Column(TIMESTAMP)
     uuid = Column(String)
     year_released = Column(Integer)
+    uuidv4 = Column(String)
 
 
 class UsersDcsDAO(sqldb.Model):
