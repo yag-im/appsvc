@@ -125,7 +125,7 @@ def get_app_release(release_uuid: str) -> AppReleaseDetails:
         uuid=r.uuid,
         year_released=r.year_released,
         tags=r.game.tags,
-        uuidv4=r.uuidv4,
+        uuidv4=r.uuidv4,  # for legacy apps path in appstor; None for new releases
     )
 
 
@@ -239,7 +239,8 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
     run_container_req: RunContainerRequestDTO = RunContainerRequestDTO(
         app_descr=RunContainerRequestDTO.AppDescr(
             slug=app_release.igdb.slug,
-            release_uuid=app_release.uuidv4 or app_release.uuid,
+            release_uuid=app_release.uuid,
+            release_uuidv4=app_release.uuidv4,
             platform=AppPlatform(app_release.platform.slug),
         ),
         reqs=RunContainerRequestDTO.Requirements(

@@ -68,8 +68,8 @@ class AppReleaseDAO(sqldb.Model):
     platform_id = Column(Integer, ForeignKey(AppPlatformDAO.id))
     runner = Column(JSONB)
     uuid = Column(String)
+    uuidv4 = Column(String)  # legacy uuid; keeping it because it's a part of app path in appstor for older releases
     year_released = Column(Integer)
-    uuidv4 = Column(String)
 
 
 class UsersDcsDAO(sqldb.Model):
