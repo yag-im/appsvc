@@ -15,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import contains_eager
 
 from appsvc.biz.dto import (
+    AgeMode,
     AppReleaseDetails,
     ContainerDescr,
     ContainerOpDescr,
@@ -80,12 +81,15 @@ GENRE_EDUCATIONAL_ID = 1000000  # custom genre for educational games (suitable f
 log = logging.getLogger("appsvc")
 
 
-def kids_mode_filter_expr() -> ColumnElement[bool]:
-    return (
-        (AppDAO.esrb_rating < ESRB_RATING_T_ID)
-        # | (AppDAO.esrb_rating.is_(None))
-        | (AppDAO.genres.contains([GENRE_EDUCATIONAL_ID]))
-    )
+def age_mode_filter_expr(age_mode: AgeMode) -> ColumnElement[bool]:
+    if age_mode == AgeMode.KID:
+        return (AppDAO.esrb_rating < ESRB_RATING_T_ID) | (AppDAO.genres.contains([GENRE_EDUCATIONAL_ID]))
+    elif age_mode == AgeMode.TEEN:
+        return AppDAO.esrb_rating < ESRB_RATING_M_ID
+    elif age_mode == AgeMode.ADULT:
+        return True
+    else:
+        return False
 
 
 def get_app_release(release_uuid: str) -> AppReleaseDetails:
@@ -311,9 +315,11 @@ def search_apps_acl(req: SearchAppsAclRequestDTO) -> list[str]:
     q_base = q_base.filter(AppReleaseDAO.is_visible.is_(True))
     if req.app_name:
         q_base = q_base.filter(AppReleaseDAO.name.ilike(f"%{req.app_name}%"))
-    if req.kids_mode:
+    if req.age_mode:
         q_base = (
-            q_base.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game)).filter(kids_mode_filter_expr())
+            q_base.join(AppReleaseDAO.game)
+            .options(contains_eager(AppReleaseDAO.game))
+            .filter(age_mode_filter_expr(req.age_mode))
         )
     res = [ar[0] for ar in q_base.with_entities(AppReleaseDAO.name).limit(APPS_ACL_SEARCH_LIMIT).all()]
     return res
@@ -338,8 +344,7 @@ def search_by_publisher(req: SearchAppsRequestDTO, order_by: list) -> list[AppRe
     q = AppReleaseDAO.query.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game))
     q = q.filter(AppReleaseDAO.is_visible.is_(True))
     q = q.filter(publisher_exists)
-    if req.kids_mode:
-        q = q.filter(kids_mode_filter_expr())
+    q = q.filter(age_mode_filter_expr(req.age_mode))
 
     return q.order_by(*order_by).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
 
@@ -354,8 +359,7 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
             | AppDAO.name.ilike(app_name_mask)
             | func.array_to_string(AppDAO.alternative_names, ",").ilike(app_name_mask),
         )
-    if req.kids_mode:
-        q_base = q_base.filter(kids_mode_filter_expr())
+    q_base = q_base.filter(age_mode_filter_expr(req.age_mode))
     if req.order_by == SearchAppsOrderBy.TS_ADDED:
         order_by = [AppReleaseDAO.uuid.desc()]  # uuidv7 reflects creation time
     elif req.order_by == SearchAppsOrderBy.YEAR_RELEASED:

@@ -190,11 +190,20 @@ class SearchAppsOrderBy(StrEnum):
     NAME = "name"
 
 
+class AgeMode(StrEnum):
+    KID = "K"
+    TEEN = "T"
+    ADULT = "A"
+
+
+DEFAULT_AGE_MODE = AgeMode.TEEN
+
+
 @dataclass
 class SearchAppsRequestDTO:
     app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
     publisher_name: t.Optional[str] = field(default=None)
-    kids_mode: bool = False
+    age_mode: AgeMode = field(default=DEFAULT_AGE_MODE)
     offset: int = 0
     limit: int = 100
     order_by: t.Optional[SearchAppsOrderBy] = field(default=SearchAppsOrderBy.TS_ADDED, metadata={"by_value": True})
@@ -225,7 +234,7 @@ class SearchAppsResponseDTO:
 class SearchAppsAclRequestDTO:
     app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
     publisher_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
-    kids_mode: bool = False
+    age_mode: AgeMode = field(default=DEFAULT_AGE_MODE)
     Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
