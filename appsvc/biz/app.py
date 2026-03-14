@@ -84,9 +84,8 @@ log = logging.getLogger("appsvc")
 def age_mode_filter_expr(age_mode: AgeMode) -> ColumnElement[bool]:
     if age_mode == AgeMode.KID:
         return (AppDAO.esrb_rating < ESRB_RATING_T_ID) | AppDAO.genres.contains([GENRE_EDUCATIONAL_ID])
-
     elif age_mode == AgeMode.TEEN:
-        return AppDAO.esrb_rating < ESRB_RATING_M_ID
+        return (AppDAO.esrb_rating < ESRB_RATING_M_ID) | (AppDAO.esrb_rating.is_(None))
     elif age_mode == AgeMode.ADULT:
         return True
     else:
