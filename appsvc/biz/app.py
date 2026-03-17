@@ -90,8 +90,11 @@ def age_mode_filter_expr(age_mode: AgeMode) -> ColumnElement[bool]:
     if age_mode == AgeMode.KID:
         return (
             (AppDAO.esrb_rating < ESRB_RATING_T_ID)
-            | AppDAO.genres.contains([GENRE_EDUCATIONAL_ID])
             | AppDAO.tags.contains(cast([TAG_KIDS], ARRAY(Text())))
+            | AppDAO.genres.contains([GENRE_EDUCATIONAL_ID])
+        ) & (
+            ~AppDAO.tags.contains(cast([TAG_ADULTS], ARRAY(Text())))
+            & ~AppDAO.tags.contains(cast([TAG_MATURE], ARRAY(Text())))
         )
     elif age_mode == AgeMode.TEEN:
         return (AppDAO.esrb_rating < ESRB_RATING_M_ID) | (
