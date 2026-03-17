@@ -77,13 +77,18 @@ ESRB_RATING_M_ID = 11
 MAX_GOOD_RTT = 0.05  # 50 ms
 
 GENRE_EDUCATIONAL_ID = 1000000  # custom genre for educational games (suitable for kids)
+TAG_KIDS = "kids"
 
 log = logging.getLogger("appsvc")
 
 
 def age_mode_filter_expr(age_mode: AgeMode) -> ColumnElement[bool]:
     if age_mode == AgeMode.KID:
-        return (AppDAO.esrb_rating < ESRB_RATING_T_ID) | AppDAO.genres.contains([GENRE_EDUCATIONAL_ID])
+        return (
+            (AppDAO.esrb_rating < ESRB_RATING_T_ID)
+            | AppDAO.genres.contains([GENRE_EDUCATIONAL_ID])
+            | AppDAO.tags.contains([TAG_KIDS])
+        )
     elif age_mode == AgeMode.TEEN:
         return (AppDAO.esrb_rating < ESRB_RATING_M_ID) | (AppDAO.esrb_rating.is_(None))
     elif age_mode == AgeMode.ADULT:
