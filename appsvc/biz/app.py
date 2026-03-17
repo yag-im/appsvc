@@ -4,8 +4,10 @@ import os
 from statistics import median
 
 from sqlalchemy import (
+    ARRAY,
     ColumnElement,
     Integer,
+    Text,
     cast,
     exists,
     func,
@@ -78,6 +80,7 @@ MAX_GOOD_RTT = 0.05  # 50 ms
 
 GENRE_EDUCATIONAL_ID = 1000000  # custom genre for educational games (suitable for kids)
 TAG_KIDS = "kids"
+TAG_ADULTS = "adults"
 
 log = logging.getLogger("appsvc")
 
@@ -87,10 +90,12 @@ def age_mode_filter_expr(age_mode: AgeMode) -> ColumnElement[bool]:
         return (
             (AppDAO.esrb_rating < ESRB_RATING_T_ID)
             | AppDAO.genres.contains([GENRE_EDUCATIONAL_ID])
-            | AppDAO.tags.contains([TAG_KIDS])
+            | AppDAO.tags.contains(cast([TAG_KIDS], ARRAY(Text())))
         )
     elif age_mode == AgeMode.TEEN:
-        return (AppDAO.esrb_rating < ESRB_RATING_M_ID) | (AppDAO.esrb_rating.is_(None))
+        return (AppDAO.esrb_rating < ESRB_RATING_M_ID) | (
+            AppDAO.esrb_rating.is_(None) & ~AppDAO.tags.contains(cast([TAG_ADULTS], ARRAY(Text())))
+        )
     elif age_mode == AgeMode.ADULT:
         return True
     else:
