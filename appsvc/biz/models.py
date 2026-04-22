@@ -8,6 +8,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
+    DATE,
     JSONB,
 )
 from sqlalchemy.orm import relationship
@@ -78,3 +79,15 @@ class UsersDcsDAO(sqldb.Model):
     id = Column(BigInteger, primary_key=True)
     dcs = Column(JSONB)
     user_id = Column(BigInteger)
+
+
+class UserDAO(sqldb.Model):
+    __tablename__ = "users"
+    __table_args__ = {"schema": "accounts"}
+    id = Column(BigInteger, primary_key=True)
+    email = Column(String(256), unique=False)
+    name = Column(String(256), unique=False)
+    tz = Column(String, nullable=False, server_default="UTC")
+    apps_lib = Column(JSONB)
+    dob = Column(DATE, nullable=False, server_default="1970-01-01")
+    is_active = Column(Boolean, nullable=False, server_default="TRUE")

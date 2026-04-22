@@ -21,6 +21,7 @@ marshmallow-dataclass = "^8.6.0"
 opentelemetry-distro = "*"
 opentelemetry-exporter-otlp = "*"
 psycopg2 = "^2.9.9"
+python-dateutil = "*"
 # for unions in marshmallow-dataclass
 typeguard = "*"
 

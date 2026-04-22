@@ -1,10 +1,13 @@
+import datetime
 import json
 import logging
 import os
 from statistics import median
 
+from dateutil.relativedelta import relativedelta
 from sqlalchemy import (
     ARRAY,
+    BigInteger,
     ColumnElement,
     Integer,
     Text,
@@ -17,10 +20,13 @@ from sqlalchemy import (
 from sqlalchemy.orm import contains_eager
 
 from appsvc.biz.dto import (
+    DEFAULT_AGE_MODE,
     AgeMode,
     AppReleaseDetails,
+    AppsLib,
     ContainerDescr,
     ContainerOpDescr,
+    MyStuffType,
     PauseAppRequestDTO,
     ResumeAppRequestDTO,
     RunAppRequestDTO,
@@ -42,6 +48,7 @@ from appsvc.biz.models import (
     AppCompanyDAO,
     AppDAO,
     AppReleaseDAO,
+    UserDAO,
     UsersDcsDAO,
 )
 from appsvc.biz.sqldb import sqldb
@@ -327,28 +334,63 @@ def stop_app(req: StopAppRequestDTO) -> None:
         raise AppOpException(e.message) from e
 
 
+def get_age_mode(user_id: int | None) -> AgeMode:
+    age_mode = DEFAULT_AGE_MODE
+    if not user_id:
+        return age_mode
+    now_date = datetime.datetime.now().date()
+    current_user = sqldb.session.query(UserDAO).filter(UserDAO.id == user_id).first()
+    age = relativedelta(now_date, current_user.dob).years
+    if age < 13:
+        age_mode = AgeMode.KID
+    elif age < 18:
+        age_mode = AgeMode.TEEN
+    else:
+        age_mode = AgeMode.ADULT
+    return age_mode
+
+
+def get_order_by(order_by: SearchAppsOrderBy | None) -> list:
+    if order_by == SearchAppsOrderBy.TS_ADDED:
+        return [AppReleaseDAO.uuid.desc()]  # uuidv7 reflects creation time
+    elif order_by == SearchAppsOrderBy.YEAR_RELEASED:
+        return [AppReleaseDAO.year_released.desc(), AppReleaseDAO.uuid.desc()]
+    else:
+        return [AppReleaseDAO.name.asc()]
+
+
 def search_apps_acl(req: SearchAppsAclRequestDTO) -> list[str]:
     q_base = AppReleaseDAO.query
-    q_base = q_base.filter(AppReleaseDAO.is_visible.is_(True))
+    q_base = (
+        q_base.join(AppReleaseDAO.game)
+        .options(contains_eager(AppReleaseDAO.game))
+        .filter(age_mode_filter_expr(get_age_mode(req.user_id)))
+        .filter(AppReleaseDAO.is_visible.is_(True))
+    )
     if req.app_name:
         q_base = q_base.filter(AppReleaseDAO.name.ilike(f"%{req.app_name}%"))
-    if req.age_mode:
-        q_base = (
-            q_base.join(AppReleaseDAO.game)
-            .options(contains_eager(AppReleaseDAO.game))
-            .filter(age_mode_filter_expr(req.age_mode))
-        )
     res = [ar[0] for ar in q_base.with_entities(AppReleaseDAO.name).limit(APPS_ACL_SEARCH_LIMIT).all()]
     return res
 
 
-def search_by_publisher(req: SearchAppsRequestDTO, order_by: list) -> list[AppReleaseDAO]:
-    company_mask = f"%{req.publisher_name}%"
+def search_by_app_name(req: SearchAppsRequestDTO) -> list[AppReleaseDAO]:
+    app_name_mask = f"%{req.app_name}%"
+    q = AppReleaseDAO.query.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game))
+    q = q.filter(
+        AppReleaseDAO.is_visible.is_(True),
+        age_mode_filter_expr(get_age_mode(req.user_id)),
+        AppReleaseDAO.name.ilike(app_name_mask)
+        | AppDAO.name.ilike(app_name_mask)
+        | func.array_to_string(AppDAO.alternative_names, ",").ilike(app_name_mask),
+    )
+    return q.order_by(*get_order_by(req.order_by)).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
 
+
+def search_by_publisher(req: SearchAppsRequestDTO) -> list[AppReleaseDAO]:
+    company_mask = f"%{req.publisher_name}%"
     elem = lateral(func.jsonb_array_elements(AppReleaseDAO.companies).table_valued("value")).alias("elem")
     elem_company_id_txt = elem.c.value.op("->>")("id")
     elem_is_publisher_txt = elem.c.value.op("->>")("publisher")
-
     publisher_exists = exists(
         select(1)
         .select_from(elem)
@@ -357,38 +399,58 @@ def search_by_publisher(req: SearchAppsRequestDTO, order_by: list) -> list[AppRe
         .where(AppCompanyDAO.name.ilike(company_mask))
         .correlate(AppReleaseDAO)
     )
-
     q = AppReleaseDAO.query.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game))
     q = q.filter(AppReleaseDAO.is_visible.is_(True))
     q = q.filter(publisher_exists)
-    q = q.filter(age_mode_filter_expr(req.age_mode))
+    q = q.filter(age_mode_filter_expr(get_age_mode(req.user_id)))
 
+    return q.order_by(*get_order_by(req.order_by)).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
+
+
+def search_by_my_stuff(req: SearchAppsRequestDTO) -> list[AppReleaseDAO]:
+    user = sqldb.session.query(UserDAO).filter(UserDAO.id == req.user_id).first()
+    if not user or not user.apps_lib:
+        return []
+    apps_lib: AppsLib = AppsLib.Schema().load(user.apps_lib)
+    if req.my_stuff == MyStuffType.FAVORITES:
+        release_ids = apps_lib.favorite_games
+    elif req.my_stuff == MyStuffType.RECENTLY_PLAYED:
+        release_ids = apps_lib.recently_played_games
+    else:
+        return []
+    if not release_ids:
+        return []
+    q = AppReleaseDAO.query.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game))
+    q = q.filter(
+        AppReleaseDAO.is_visible.is_(True),
+        age_mode_filter_expr(get_age_mode(req.user_id)),
+        AppReleaseDAO.id.in_(release_ids),
+    )
+    if req.my_stuff == MyStuffType.FAVORITES:
+        order_by = [AppReleaseDAO.name.asc()]
+    else:
+        # preserve the order of ids in recently_played_games
+        order_by = [func.array_position(cast(release_ids, ARRAY(BigInteger)), AppReleaseDAO.id)]
     return q.order_by(*order_by).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
 
 
-def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
-    q_base = AppReleaseDAO.query.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game))
-    q_base = q_base.filter(AppReleaseDAO.is_visible.is_(True))
-    if req.app_name:
-        app_name_mask = f"%{req.app_name}%"
-        q_base = q_base.filter(
-            AppReleaseDAO.name.ilike(app_name_mask)
-            | AppDAO.name.ilike(app_name_mask)
-            | func.array_to_string(AppDAO.alternative_names, ",").ilike(app_name_mask),
-        )
-    q_base = q_base.filter(age_mode_filter_expr(req.age_mode))
-    if req.order_by == SearchAppsOrderBy.TS_ADDED:
-        order_by = [AppReleaseDAO.uuid.desc()]  # uuidv7 reflects creation time
-    elif req.order_by == SearchAppsOrderBy.YEAR_RELEASED:
-        order_by = [AppReleaseDAO.year_released.desc(), AppReleaseDAO.uuid.desc()]
-    else:
-        order_by = [AppReleaseDAO.name.asc()]
-    res: list[AppReleaseDAO]
-    if req.publisher_name:
-        res = search_by_publisher(req, order_by)
-    else:
-        res = q_base.order_by(*order_by).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
+def search_all(req: SearchAppsRequestDTO) -> list[AppReleaseDAO]:
+    q = AppReleaseDAO.query.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game))
+    q = q.filter(AppReleaseDAO.is_visible.is_(True))
+    q = q.filter(age_mode_filter_expr(get_age_mode(req.user_id)))
+    return q.order_by(*get_order_by(req.order_by)).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
 
+
+def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
+    res: list[AppReleaseDAO]
+    if req.app_name:
+        res = search_by_app_name(req)
+    elif req.publisher_name:
+        res = search_by_publisher(req)
+    elif req.my_stuff:
+        res = search_by_my_stuff(req)
+    else:
+        res = search_all(req)
     return [
         SearchAppsResponseItem(
             cover_image_id=(

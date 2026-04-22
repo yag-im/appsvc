@@ -47,6 +47,7 @@ repos:
       - id: mypy
         additional_dependencies: [
           marshmallow_dataclass,
+          types-python-dateutil,
           types-dateparser,
           types-requests
         ]

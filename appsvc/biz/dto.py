@@ -15,6 +15,13 @@ from appsvc.services.dto.jukeboxsvc import (
 
 
 @dataclass
+class AppsLib:
+    favorite_games: list[int] = field(default_factory=list)
+    recently_played_games: list[int] = field(default_factory=list)
+    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+
+
+@dataclass
 class ContainerOpDescr:
     id: str
     node_id: str
@@ -196,6 +203,11 @@ class AgeMode(StrEnum):
     ADULT = "A"
 
 
+class MyStuffType(StrEnum):
+    FAVORITES = "favorites"
+    RECENTLY_PLAYED = "recently_played"
+
+
 DEFAULT_AGE_MODE = AgeMode.TEEN
 
 
@@ -203,7 +215,8 @@ DEFAULT_AGE_MODE = AgeMode.TEEN
 class SearchAppsRequestDTO:
     app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
     publisher_name: t.Optional[str] = field(default=None)
-    age_mode: AgeMode = field(default=DEFAULT_AGE_MODE)
+    my_stuff: t.Optional[MyStuffType] = field(default=None)
+    user_id: t.Optional[int] = field(default=None)
     offset: int = 0
     limit: int = 100
     order_by: t.Optional[SearchAppsOrderBy] = field(default=SearchAppsOrderBy.TS_ADDED, metadata={"by_value": True})
@@ -234,7 +247,8 @@ class SearchAppsResponseDTO:
 class SearchAppsAclRequestDTO:
     app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
     publisher_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
-    age_mode: AgeMode = field(default=DEFAULT_AGE_MODE)
+    my_stuff: t.Optional[MyStuffType] = field(default=None)
+    user_id: t.Optional[int] = field(default=None)
     Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
