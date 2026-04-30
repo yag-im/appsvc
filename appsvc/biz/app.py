@@ -407,6 +407,16 @@ def search_by_publisher(req: SearchAppsRequestDTO) -> list[AppReleaseDAO]:
     return q.order_by(*get_order_by(req.order_by)).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
 
 
+def search_by_lang(req: SearchAppsRequestDTO) -> list[AppReleaseDAO]:
+    q = AppReleaseDAO.query.join(AppReleaseDAO.game).options(contains_eager(AppReleaseDAO.game))
+    q = q.filter(
+        AppReleaseDAO.is_visible.is_(True),
+        age_mode_filter_expr(get_age_mode(req.user_id)),
+        AppReleaseDAO.lang == req.lang,
+    )
+    return q.order_by(*get_order_by(req.order_by)).offset(req.offset).limit(min(APPS_SEARCH_LIMIT, req.limit)).all()
+
+
 def search_by_my_stuff(req: SearchAppsRequestDTO) -> list[AppReleaseDAO]:
     user = sqldb.session.query(UserDAO).filter(UserDAO.id == req.user_id).first()
     if not user or not user.apps_lib:
@@ -447,6 +457,8 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
         res = search_by_app_name(req)
     elif req.publisher_name:
         res = search_by_publisher(req)
+    elif req.lang:
+        res = search_by_lang(req)
     elif req.my_stuff:
         res = search_by_my_stuff(req)
     else:

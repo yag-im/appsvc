@@ -215,6 +215,7 @@ DEFAULT_AGE_MODE = AgeMode.TEEN
 class SearchAppsRequestDTO:
     app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
     publisher_name: t.Optional[str] = field(default=None)
+    lang: t.Optional[str] = field(default=None)
     my_stuff: t.Optional[MyStuffType] = field(default=None)
     user_id: t.Optional[int] = field(default=None)
     offset: int = 0
