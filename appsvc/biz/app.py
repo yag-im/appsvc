@@ -57,7 +57,6 @@ from appsvc.services.dto.jukeboxsvc import (
     AppPlatform,
     RunContainerRequestDTO,
     RunContainerResponseDTO,
-    VideoEnc,
     WindowSystem,
     WsConnDC,
 )
@@ -71,15 +70,12 @@ MIN_COLOR_BITS = 16  # xorg fails to start with lower Depth
 MAX_COLOR_BITS = 24  # xorg fails to start with higher Depth
 MIN_SCREEN_HEIGHT = 400  # xorg fails to start with lower
 MIN_SCREEN_WIDTH = 640  # xorg fails to start with lower
-DEFAULT_HW_REQ_DGPU = False
-DEFAULT_HW_REQ_IGPU = False
 DEFAULT_HW_REQ_MEMORY = 1 * 1024 * 1024 * 1024  # 1GB
 DEFAULT_HW_REQ_MEMORY_SHARED = None
 DEFAULT_HW_REQ_NANOCPUS = 1 * 1_000_000_000  # 1 CPU core
 
 DATA_CENTERS: list[str] = json.loads(os.environ["DATA_CENTERS"])
 RUNNERS_CONF: dict = json.loads(os.environ["RUNNERS_CONF"])
-STREAMD_REQS: dict = json.loads(os.environ["STREAMD_REQS"])
 
 ESRB_RATING_T_ID = 10
 ESRB_RATING_M_ID = 11
@@ -162,54 +158,30 @@ def get_hw_reqs(
 ) -> RunContainerRequestDTO.Requirements.HardwareRequirements:
     """Gets hardware requirements.
 
-    Based on app, streamd and runner requirements, e.g. dgpu requirement may come from either app (3D game) or
-    streamd (powerfull codec / highres)
+    Based on app, streamd and runner requirements, e.g. gpu requirement may come from either app (3D game) or
+    streamd (powerfull codec / highres may require a secondary dedicated GPU)
     """
 
-    # if not app_release.app_reqs.hw:
-    # TODO: this should be a part of
-    #    app_release.app_reqs.hw = AppReleaseDetails.AppReqs.HwReqs.Schema().load({})
-    hw_req_dgpu = (
-        app_release.app_reqs.hw.dgpu or STREAMD_REQS.get("dgpu") or runner_conf.get("dgpu") or DEFAULT_HW_REQ_DGPU
-    )
-    hw_req_igpu = (
-        app_release.app_reqs.hw.igpu or STREAMD_REQS.get("igpu") or runner_conf.get("igpu") or DEFAULT_HW_REQ_IGPU
-    )
+    hw_req_gpu = app_release.app_reqs.hw.gpu
     hw_req_memory = max(
         (app_release.app_reqs.hw.memory or 0),
-        (STREAMD_REQS.get("memory", 0) or 0),
         (runner_conf.get("memory", 0) or 0),
         DEFAULT_HW_REQ_MEMORY,
     )
     hw_req_memory_shared = (
-        (app_release.app_reqs.hw.memory_shared or 0)
-        + (STREAMD_REQS.get("memory_shared", 0) or 0)
-        + (runner_conf.get("memory_shared", 0) or 0)
+        (app_release.app_reqs.hw.memory_shared or 0) + (runner_conf.get("memory_shared", 0) or 0)
     ) or DEFAULT_HW_REQ_MEMORY_SHARED
 
     hw_req_nanocpus = (
-        (app_release.app_reqs.hw.nanocpus or 0)
-        + (STREAMD_REQS.get("nanocpus", 0) or 0)
-        + (runner_conf.get("nanocpus", 0) or 0)
-        + DEFAULT_HW_REQ_NANOCPUS
+        (app_release.app_reqs.hw.nanocpus or 0) + (runner_conf.get("nanocpus", 0) or 0) + DEFAULT_HW_REQ_NANOCPUS
     )
 
     return RunContainerRequestDTO.Requirements.HardwareRequirements(
-        dgpu=hw_req_dgpu,
-        igpu=hw_req_igpu,
+        gpu=hw_req_gpu,
         memory=hw_req_memory,
         memory_shared=hw_req_memory_shared,
         nanocpus=hw_req_nanocpus,
     )
-
-
-def get_streamd_video_enc(streamd_reqs: dict) -> VideoEnc:
-    if streamd_reqs.get("igpu"):
-        return VideoEnc.GPU_INTEL
-    elif streamd_reqs.get("dgpu"):
-        return VideoEnc.GPU_NVIDIA
-    else:
-        return VideoEnc.CPU
 
 
 @log_input_output
@@ -283,7 +255,6 @@ def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
                 runner=RunContainerRequestDTO.Requirements.ContainerSpecs.Runner(
                     name=runner_name, ver=runner_ver, window_system=runner_window_system
                 ),
-                video_enc=get_streamd_video_enc(streamd_reqs=STREAMD_REQS),
             ),
             hw=get_hw_reqs(app_release, runner_conf),
         ),
@@ -336,7 +307,7 @@ def stop_app(req: StopAppRequestDTO) -> None:
 
 def get_age_mode(user_id: int | None) -> AgeMode:
     age_mode = DEFAULT_AGE_MODE
-    if not user_id:
+    if user_id is None:
         return age_mode
     now_date = datetime.datetime.now().date()
     current_user = sqldb.session.query(UserDAO).filter(UserDAO.id == user_id).first()

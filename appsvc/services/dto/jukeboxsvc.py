@@ -5,7 +5,10 @@ from dataclasses import field
 from enum import StrEnum
 
 from marshmallow import Schema
+from marshmallow import fields as ma_fields
 from marshmallow_dataclass import dataclass
+
+from appsvc.biz.dto import GpuModel
 
 
 class DcRegion(StrEnum):
@@ -17,12 +20,6 @@ class DcRegion(StrEnum):
 class WindowSystem(StrEnum):
     X11 = "x11"
     WAYLAND = "wayland"
-
-
-class VideoEnc(StrEnum):
-    CPU = "cpu"
-    GPU_INTEL = "gpu-intel"
-    GPU_NVIDIA = "gpu-nvidia"
 
 
 class AppPlatform(StrEnum):
@@ -71,22 +68,13 @@ class RunContainerRequestDTO:
                 window_system: WindowSystem = field(metadata={"by_value": True})
 
             runner: Runner
-            video_enc: VideoEnc = field(metadata={"by_value": True})  # streamd requirement
 
-            def image_tag(self) -> str:
-                res = "{}_{}_{}:{}".format(  # pylint: disable=consider-using-f-string
-                    self.runner.window_system,
-                    self.video_enc,
-                    self.runner.name,
-                    self.runner.ver,
-                )
-                return res
-
-        # TODO: dup of jukebox.core.node.NodeRequirements
         @dataclass
         class HardwareRequirements:
-            dgpu: bool  # could be for either app (3D game) or streamd (powerfull codec / highres)
-            igpu: bool  # mostly for streamd, but can also be used by some games
+            gpu: t.Annotated[
+                GpuModel | None, ma_fields.Enum(GpuModel, by_value=True, allow_none=True)
+            ]  # could be for either app itself (3D game) or streamd (powerfull codec / highres may require a dedicated
+            # GPU)
             memory: int  # memory required by apps running inside a container (game, runner and streamd)
             memory_shared: t.Optional[int]  # shared memory required by apps (in bytes)
             nanocpus: int  # nanocpus required by apps running inside a container (game, runner and streamd)

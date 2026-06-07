@@ -8,6 +8,7 @@ from marshmallow import (
 )
 from marshmallow_dataclass import dataclass
 
+from appsvc.biz.hw import GpuModel
 from appsvc.services.dto.jukeboxsvc import (
     DcRegion,
     WindowSystem,
@@ -77,8 +78,7 @@ class AppReleaseDetails:
     class AppReqs:
         @dataclass
         class HwReqs:
-            dgpu: bool = False
-            igpu: bool = False
+            gpu: GpuModel | None = None
             memory: int = 0
             memory_shared: int = 0
             nanocpus: int = 0
