@@ -30,6 +30,7 @@ class AppPlatform(StrEnum):
     WINDOWS = "win"
     ZX_SPECTRUM = "zxs"
     AMIGA = "amiga"
+    TRS_80 = "trs-80"
 
 
 @dataclass
