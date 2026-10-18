@@ -2,12 +2,12 @@ import json
 import logging
 import typing as t
 
-from flask import (
-    Flask,
+from fastapi import (
+    FastAPI,
+    Request,
     Response,
 )
-from marshmallow import ValidationError
-from werkzeug.exceptions import HTTPException
+from fastapi.exceptions import RequestValidationError
 
 ERROR_APP_OP = (1409, "app operational error")
 ERROR_APP_RELEASE_NOT_FOUND = (1404, "app release not found")
@@ -53,33 +53,43 @@ class ContainerNotFoundException(BizException):
         super().__init__(code, message)
 
 
-def init_app(app: Flask) -> None:
-    """Inits error handlers.
+def _error_messages(e: RequestValidationError) -> dict[str, t.Any]:
+    """Groups errors into a nested {field: {subfield: [messages]}} dict."""
+    res: dict[str, t.Any] = {}
+    for err in e.errors():
+        # loc[0] is "body", "query", etc.; json_invalid loc holds a char offset, not a field
+        loc = err["loc"][1:] if err["type"] != "json_invalid" else ()
+        path = [str(p) for p in loc] or ["_schema"]
+        node = res
+        for p in path[:-1]:
+            node = node.setdefault(p, {})
+        node.setdefault(path[-1], []).append(err["msg"])
+    return res
 
-    Make sure FLASK_PROPAGATE_EXCEPTIONS is set to `true`, otherwise errorhandlers will be unreachable.
-    """
 
-    @app.errorhandler(Exception)
-    def handle_exception(e: Exception) -> Response:
-        if isinstance(e, HTTPException):
-            return e
+def init_app(app: FastAPI) -> None:
+    """Inits error handlers."""
+
+    # HTTPException (404, 405, etc.) is handled by FastAPI's default handler
+    @app.exception_handler(Exception)
+    async def handle_exception(_: Request, e: Exception) -> Response:
         res = json.dumps({"code": ERROR_UNKNOWN[0], "message": ERROR_UNKNOWN[1]})
-        log.exception(e)
-        return Response(res, mimetype="application/json", status=500)
+        log.exception(e, exc_info=e)
+        return Response(res, media_type="application/json", status_code=500)
 
-    @app.errorhandler(ValidationError)
-    def handle_validation_error(e: ValidationError) -> Response:
+    @app.exception_handler(RequestValidationError)
+    async def handle_validation_error(_: Request, e: RequestValidationError) -> Response:
         res = json.dumps(
             {
                 "code": 1400,
-                "message": e.messages,
+                "message": _error_messages(e),
             }
         )
         log.error(res)
-        return Response(res, mimetype="application/json", status=400)
+        return Response(res, media_type="application/json", status_code=400)
 
-    @app.errorhandler(BizException)
-    def handle_biz_exception(e: BizException) -> Response:
+    @app.exception_handler(BizException)
+    async def handle_biz_exception(_: Request, e: BizException) -> Response:
         res = json.dumps(
             {
                 "code": e.code,
@@ -87,4 +97,4 @@ def init_app(app: Flask) -> None:
             }
         )
         log.error(res)
-        return Response(res, mimetype="application/json", status=409)
+        return Response(res, media_type="application/json", status_code=409)

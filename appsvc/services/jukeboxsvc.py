@@ -1,4 +1,3 @@
-import json
 import os
 
 from appsvc.biz.dto import (
@@ -25,13 +24,13 @@ def run_container(req: RunContainerRequestDTO) -> RunContainerResponseDTO:
     s = get_http_client_session()
     res = s.post(
         url=f"{JUKEBOXSVC_URL}/containers/run",
-        data=json.dumps(RunContainerRequestDTO.Schema().dump(req)),
+        data=req.model_dump_json(),
         headers={"Content-Type": "application/json"},
         timeout=(3, 55),
     )
     if res.status_code != 200:
         raise JukeboxSvcException(res.text)
-    return RunContainerResponseDTO.Schema().load(data=res.json())
+    return RunContainerResponseDTO.model_validate(res.json())
 
 
 def pause_container(container: ContainerOpDescr) -> None:
@@ -48,16 +47,12 @@ def resume_container(req: ResumeAppRequestDTO) -> None:
     s = get_http_client_session()
     res = s.post(
         url=f"{JUKEBOXSVC_URL}/nodes/{req.container.node_id}/containers/{req.container.id}/resume",
-        data=json.dumps(
-            ResumeContainerRequestDTO.Schema().dump(
-                ResumeContainerRequestDTO(
-                    ws_conn=WsConnDC(
-                        id=req.ws_conn.id,
-                        consumer_id=req.ws_conn.consumer_id,
-                    )
-                )
+        data=ResumeContainerRequestDTO(
+            ws_conn=WsConnDC(
+                id=req.ws_conn.id,
+                consumer_id=req.ws_conn.consumer_id,
             )
-        ),
+        ).model_dump_json(),
         headers={"Content-Type": "application/json"},
         timeout=REQUESTS_TIMEOUT_CONN_READ,
     )

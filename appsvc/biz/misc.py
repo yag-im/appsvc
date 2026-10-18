@@ -5,8 +5,8 @@ log = logging.getLogger("appsvc")
 
 
 @t.no_type_check
-def log_input_output(func):
-    def wrap(*args, **kwargs):
+def log_input_output(func):  # noqa: ANN001, ANN201
+    def wrap(*args, **kwargs):  # noqa: ANN002, ANN003, ANN202
         # Log the function name and arguments
         log.debug("calling %s with args: %s, kwargs: %s", func.__name__, args, kwargs)
 

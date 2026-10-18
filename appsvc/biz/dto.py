@@ -1,12 +1,16 @@
 import typing as t
-from dataclasses import field
-from enum import StrEnum
-
-from marshmallow import (
-    Schema,
-    validate,
+from enum import (
+    Enum,
+    StrEnum,
 )
-from marshmallow_dataclass import dataclass
+
+from pydantic import (
+    BaseModel,
+    BeforeValidator,
+    ConfigDict,
+    Field,
+    PlainSerializer,
+)
 
 from appsvc.biz.hw import GpuModel
 from appsvc.services.dto.jukeboxsvc import (
@@ -15,180 +19,164 @@ from appsvc.services.dto.jukeboxsvc import (
 )
 
 
-@dataclass
-class AppsLib:
-    favorite_games: list[int] = field(default_factory=list)
-    recently_played_games: list[int] = field(default_factory=list)
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+def _enum_by_name[E: Enum](enum: type[E]) -> t.Callable[[t.Any], t.Any]:
+    def parse(v: t.Any) -> t.Any:
+        if isinstance(v, str) and not isinstance(v, enum):
+            try:
+                return enum[v]
+            except KeyError:
+                raise ValueError(f"Must be one of: {', '.join(enum.__members__)}.") from None
+        return v
+
+    return parse
 
 
-@dataclass
-class ContainerOpDescr:
+def _enum_name(v: Enum | None) -> str | None:
+    return v.name if v is not None else None
+
+
+# these enums are (de)serialized by member name rather than value (API/DB compatibility)
+GpuModelByName = t.Annotated[GpuModel, BeforeValidator(_enum_by_name(GpuModel)), PlainSerializer(_enum_name)]
+
+
+class RequestDTO(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class AppsLib(BaseModel):
+    favorite_games: list[int] = Field(default_factory=list)
+    recently_played_games: list[int] = Field(default_factory=list)
+
+
+class ContainerOpDescr(RequestDTO):
     id: str
     node_id: str
 
 
-@dataclass
 class ContainerDescr(ContainerOpDescr):
-    region: DcRegion = field(metadata={"by_value": True})
+    region: DcRegion
     cpuset_cpus: list[int]
 
 
-@dataclass
-class WsConnDC:
+class WsConnDC(RequestDTO):
     id: str
     consumer_id: str
 
 
-@dataclass
-class AppReleaseDetails:
-    @dataclass
-    class Company:
+class AppReleaseDetails(BaseModel):
+    class Company(BaseModel):
         id: int
-        name: str
-        developer: bool
-        porting: bool
-        publisher: bool
-        supporting: bool
+        name: str | None = None
+        developer: bool | None = None
+        porting: bool | None = None
+        publisher: bool | None = None
+        supporting: bool | None = None
 
-    @dataclass
-    class MediaAssets:
-        @dataclass
-        class Cover:
+    class MediaAssets(BaseModel):
+        class Cover(BaseModel):
             image_id: str
 
-        @dataclass
-        class Screenshot:
+        class Screenshot(BaseModel):
             width: int
             height: int
             image_id: str
 
-        cover: t.Optional[Cover]
-        screenshots: t.Optional[list[Screenshot]]
-        Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+        cover: Cover | None = None
+        screenshots: list[Screenshot] | None = None
 
-    @dataclass
-    class Runner:
+    class Runner(BaseModel):
         name: str
-        ver: t.Optional[str]
-        window_system: t.Optional[WindowSystem] = field(default=None, metadata={"by_value": True})
-        Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+        ver: str | None = None
+        window_system: WindowSystem | None = None
 
-    @dataclass
-    class AppReqs:
-        @dataclass
-        class HwReqs:
-            gpu: GpuModel | None = None
+    class AppReqs(BaseModel):
+        class HwReqs(BaseModel):
+            gpu: GpuModelByName | None = None
             memory: int = 0
             memory_shared: int = 0
             nanocpus: int = 0
 
-        @dataclass
-        class UaReqs:
+        class UaReqs(BaseModel):
             lock_pointer: bool = False
 
-        color_bits: t.Optional[int]
+        color_bits: int | None = None
         screen_width: int
         screen_height: int
-        hw: HwReqs = field(default_factory=HwReqs)
+        hw: HwReqs = Field(default_factory=HwReqs)
         midi: bool = False
-        ua: UaReqs = field(default_factory=UaReqs)
-        loading_duration: t.Optional[int] = 0
-        Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+        ua: UaReqs = Field(default_factory=UaReqs)
+        loading_duration: int | None = 0
 
-    @dataclass
-    class GameRefs:
-        ag_id: t.Optional[t.Union[str, int]]
-        lutris_id: t.Optional[str]
-        mg_id: t.Optional[int]
-        pcgw_id: t.Optional[str]
-        qz_id: t.Optional[int]
-        Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+    class GameRefs(BaseModel):
+        ag_id: str | int | None = None
+        lutris_id: str | None = None
+        mg_id: int | None = None
+        pcgw_id: str | None = None
+        qz_id: int | None = None
 
-    @dataclass
-    class IgdbDescr:
+    class IgdbDescr(BaseModel):
         id: int
         slug: str
-        similar_ids: t.Optional[list[int]]
-        Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+        similar_ids: list[int] | None = None
 
-    @dataclass
-    class AppPlatform:
+    class AppPlatform(BaseModel):
         id: int
-        name: str
-        abbreviation: str
-        alternative_name: str
-        slug: str
+        name: str | None = None
+        abbreviation: str | None = None
+        alternative_name: str | None = None
+        slug: str | None = None
 
-    @dataclass
-    class Distro:
+    class Distro(BaseModel):
         files: list[str]
         format: str
         url: str
-        Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
-    addl_artifacts: dict
-    alternative_names: list[str]
+    addl_artifacts: dict[str, t.Any] | None = None
+    alternative_names: list[str] | None = None
     app_reqs: AppReqs
     companies: list[Company]
     distro: Distro
-    esrb_rating: int
+    esrb_rating: int | None = None
     igdb: IgdbDescr
     id: int
-    is_visible: bool
-    lang: str
-    long_descr: str
+    is_visible: bool | None = None
+    lang: str | None = None
+    long_descr: str | None = None
     media_assets: MediaAssets
-    media_assets_localized: t.Optional[MediaAssets]
-    name: str
+    media_assets_localized: MediaAssets | None = None
+    name: str | None = None
     platform: AppPlatform
     refs: GameRefs
     runner: Runner
-    short_descr: str
+    short_descr: str | None = None
     uuid: str
-    uuidv4: str | None
-    year_released: int
+    uuidv4: str | None = None
+    year_released: int | None = None
     tags: list[str] | None = None
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
-@dataclass
-class GetAppReleaseResponseDTO(AppReleaseDetails):
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
-
-
-@dataclass
-class RunAppRequestDTO:
+class RunAppRequestDTO(RequestDTO):
     app_release_uuid: str
     user_id: int
     ws_conn: WsConnDC
-    preferred_dcs: t.Optional[list[str]] = field(default_factory=list)
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+    preferred_dcs: list[str] | None = Field(default_factory=list)
 
 
-@dataclass
-class RunAppResponseDTO:
+class RunAppResponseDTO(BaseModel):
     container: ContainerDescr
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
-@dataclass
-class PauseAppRequestDTO:
+class PauseAppRequestDTO(RequestDTO):
     container: ContainerOpDescr
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
-@dataclass
-class ResumeAppRequestDTO:
+class ResumeAppRequestDTO(RequestDTO):
     container: ContainerOpDescr
     ws_conn: WsConnDC
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
-@dataclass
-class StopAppRequestDTO:
+class StopAppRequestDTO(RequestDTO):
     container: ContainerOpDescr
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
 class SearchAppsOrderBy(StrEnum):
@@ -208,52 +196,45 @@ class MyStuffType(StrEnum):
     RECENTLY_PLAYED = "recently_played"
 
 
+MyStuffTypeByName = t.Annotated[MyStuffType, BeforeValidator(_enum_by_name(MyStuffType)), PlainSerializer(_enum_name)]
+
 DEFAULT_AGE_MODE = AgeMode.TEEN
 
 
-@dataclass
-class SearchAppsRequestDTO:
-    app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
-    publisher_name: t.Optional[str] = field(default=None)
-    lang: t.Optional[str] = field(default=None)
-    my_stuff: t.Optional[MyStuffType] = field(default=None)
-    user_id: t.Optional[int] = field(default=None)
+class SearchAppsRequestDTO(RequestDTO):
+    app_name: t.Annotated[str | None, Field(min_length=2)] = None
+    publisher_name: str | None = None
+    lang: str | None = None
+    my_stuff: MyStuffTypeByName | None = None
+    user_id: int | None = None
     offset: int = 0
     limit: int = 100
-    order_by: t.Optional[SearchAppsOrderBy] = field(default=SearchAppsOrderBy.TS_ADDED, metadata={"by_value": True})
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+    order_by: SearchAppsOrderBy | None = SearchAppsOrderBy.TS_ADDED
 
 
-@dataclass
-class SearchAppsResponseItem:
-    cover_image_id: str
-    esrb_rating: int
+class SearchAppsResponseItem(BaseModel):
+    cover_image_id: str | None = None
+    esrb_rating: int | None = None
     id: str
-    lang: str
-    name: str
-    slug: str
-    year_released: int
-    platform: str
-    distro_format: str
+    lang: str | None = None
+    name: str | None = None
+    slug: str | None = None
+    year_released: int | None = None
+    platform: str | None = None
+    distro_format: str | None = None
     tags: list[str] | None = None
 
 
-@dataclass
-class SearchAppsResponseDTO:
-    apps: t.List[SearchAppsResponseItem] = field(default_factory=list)
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+class SearchAppsResponseDTO(BaseModel):
+    apps: list[SearchAppsResponseItem] = Field(default_factory=list)
 
 
-@dataclass
-class SearchAppsAclRequestDTO:
-    app_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
-    publisher_name: t.Optional[str] = field(default=None, metadata={"validate": validate.Length(min=2)})
-    my_stuff: t.Optional[MyStuffType] = field(default=None)
-    user_id: t.Optional[int] = field(default=None)
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
+class SearchAppsAclRequestDTO(RequestDTO):
+    app_name: t.Annotated[str | None, Field(min_length=2)] = None
+    publisher_name: t.Annotated[str | None, Field(min_length=2)] = None
+    my_stuff: MyStuffTypeByName | None = None
+    user_id: int | None = None
 
 
-@dataclass
-class SearchAppsAclResponseDTO:
+class SearchAppsAclResponseDTO(BaseModel):
     acl: list[str]
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name

@@ -1,14 +1,10 @@
 # sync with jukeboxsvc (jukeboxsvc/dto/container.py)
 
-import typing as t
-from dataclasses import field
 from enum import StrEnum
 
-from marshmallow import Schema
-from marshmallow import fields as ma_fields
-from marshmallow_dataclass import dataclass
+from pydantic import BaseModel
 
-from appsvc.biz.dto import GpuModel
+from appsvc.biz.hw import GpuModel
 
 
 class DcRegion(StrEnum):
@@ -33,52 +29,43 @@ class AppPlatform(StrEnum):
     TRS_80 = "trs-80"
 
 
-@dataclass
-class WsConnDC:
+class WsConnDC(BaseModel):
     """Websocket connection (sigsvc) parameters."""
 
     consumer_id: str  # peer_id of the party awaiting for a stream
     id: str  # unique ws connection id (used as a sticky session cookie value)
 
 
-@dataclass
-class RunContainerRequestDTO:
-    @dataclass
-    class AppDescr:
+class RunContainerRequestDTO(BaseModel):
+    class AppDescr(BaseModel):
         # slug and release_uuid are also parts of an app path in appstor
         slug: str  # igdb slug, e.g. the-pink-panther-hokus-pokus-pink
         release_uuid: str  # unique release id, e.g.: 019c887a-f4e2-7dcc-a793-678c0e0b9f6e
-        release_uuidv4: str | None  # legacy release uuid; part of app path in appstor for older releases
-        platform: AppPlatform = field(metadata={"by_value": True})
+        release_uuidv4: str | None = None  # legacy release uuid; part of app path in appstor for older releases
+        platform: AppPlatform
 
-    @dataclass
-    class Requirements:
-        @dataclass
-        class AppRequirements:
+    class Requirements(BaseModel):
+        class AppRequirements(BaseModel):
             color_bits: int
             midi: bool
             screen_height: int
             screen_width: int
-            loading_duration: t.Optional[int] = 0
+            loading_duration: int | None = 0
 
-        @dataclass
-        class ContainerSpecs:
-            @dataclass
-            class Runner:
+        class ContainerSpecs(BaseModel):
+            class Runner(BaseModel):
                 name: str
                 ver: str
-                window_system: WindowSystem = field(metadata={"by_value": True})
+                window_system: WindowSystem
 
             runner: Runner
 
-        @dataclass
-        class HardwareRequirements:
-            gpu: t.Annotated[
-                GpuModel | None, ma_fields.Enum(GpuModel, by_value=True, allow_none=True)
-            ]  # could be for either app itself (3D game) or streamd (powerfull codec / highres may require a dedicated
-            # GPU)
+        class HardwareRequirements(BaseModel):
+            # could be for either app itself (3D game) or streamd
+            # (powerfull codec / highres may require a dedicated GPU)
+            gpu: GpuModel | None = None
             memory: int  # memory required by apps running inside a container (game, runner and streamd)
-            memory_shared: t.Optional[int]  # shared memory required by apps (in bytes)
+            memory_shared: int | None = None  # shared memory required by apps (in bytes)
             nanocpus: int  # nanocpus required by apps running inside a container (game, runner and streamd)
 
         app: AppRequirements
@@ -86,34 +73,26 @@ class RunContainerRequestDTO:
         hw: HardwareRequirements
 
     app_descr: AppDescr
-    # TODO: add DcRegion enum into "preferred_dcs" and validation:
-    # https://github.com/lovasoa/marshmallow_dataclass/issues/255
+    # TODO: use DcRegion enum for "preferred_dcs"
     preferred_dcs: list[str]
     reqs: Requirements
     user_id: int
     ws_conn: WsConnDC
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
-@dataclass
-class RunContainerResponseDTO:
-    @dataclass
-    class NodeDescr:
+class RunContainerResponseDTO(BaseModel):
+    class NodeDescr(BaseModel):
         id: str
         api_uri: str
-        region: DcRegion = field(metadata={"by_value": True})
+        region: DcRegion
 
-    @dataclass
-    class ContainerDescr:
+    class ContainerDescr(BaseModel):
         id: str
         cpuset_cpus: list[int]
 
     node: NodeDescr
     container: ContainerDescr
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name
 
 
-@dataclass
-class ResumeContainerRequestDTO:
+class ResumeContainerRequestDTO(BaseModel):
     ws_conn: WsConnDC
-    Schema: t.ClassVar[t.Type[Schema]] = Schema  # pylint: disable=invalid-name

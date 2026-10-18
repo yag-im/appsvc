@@ -1,19 +1,13 @@
 import logging
 
-from flask import Flask
 
-
-def init_app(app: Flask) -> None:
+def init() -> None:
     # log setup
-    # TODO: use app.config["DEBUG"] flag for log_level
+    # TODO: make log_level configurable
     log_level = logging.DEBUG
 
     handler = logging.StreamHandler()
     handler.setFormatter(logging.Formatter("[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s"))
-
-    app.logger.handlers.clear()
-    app.logger.addHandler(handler)
-    app.logger.setLevel(log_level)
 
     app_log = logging.getLogger("appsvc")
     app_log.handlers.clear()

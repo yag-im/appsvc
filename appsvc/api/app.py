@@ -1,20 +1,8 @@
-from flask import (
-    Response,
-    request,
-)
-from flask_restful import Resource
+from fastapi import APIRouter
 
-from appsvc.biz.app import (
-    get_app_release,
-    pause_app,
-    resume_app,
-    run_app,
-    search_apps,
-    search_apps_acl,
-    stop_app,
-)
+from appsvc.biz import app as biz
 from appsvc.biz.dto import (
-    GetAppReleaseResponseDTO,
+    AppReleaseDetails,
     PauseAppRequestDTO,
     ResumeAppRequestDTO,
     RunAppRequestDTO,
@@ -26,60 +14,52 @@ from appsvc.biz.dto import (
     StopAppRequestDTO,
 )
 
-
-class GetAppRelease(Resource):
-    def get(self, app_release_uuid: str) -> Response:
-        """Gets app release details."""
-        res = get_app_release(app_release_uuid)
-        return GetAppReleaseResponseDTO.Schema().dump(res), 200
+router = APIRouter(prefix="/apps")
 
 
-class RunApp(Resource):
-    def post(self) -> Response:
-        """Runs a new app."""
-        req: RunAppRequestDTO = RunAppRequestDTO.Schema().load(data=request.get_json())
-        res = run_app(req)
-        return RunAppResponseDTO.Schema().dump(res), 200
+@router.get("/{app_release_uuid}")
+def get_app_release(app_release_uuid: str) -> AppReleaseDetails:
+    """Gets app release details."""
+    return biz.get_app_release(app_release_uuid)
 
 
-class PauseApp(Resource):
-    def post(self) -> Response:
-        """Pauses a running app."""
-        req: PauseAppRequestDTO = PauseAppRequestDTO.Schema().load(data=request.get_json())
-        pause_app(req)
-        return "", 200
+@router.post("/run")
+def run_app(req: RunAppRequestDTO) -> RunAppResponseDTO:
+    """Runs a new app."""
+    return biz.run_app(req)
 
 
-class ResumeApp(Resource):
-    def post(self) -> Response:
-        """Resumes a paused app.
-
-        May require a context switch (sigsvc server change) so it accepts a new set of ws_conn parameters.
-        """
-        req: ResumeAppRequestDTO = ResumeAppRequestDTO.Schema().load(data=request.get_json())
-        resume_app(req)
-        return "", 200
+@router.post("/pause")
+def pause_app(req: PauseAppRequestDTO) -> str:
+    """Pauses a running app."""
+    biz.pause_app(req)
+    return ""
 
 
-class StopApp(Resource):
-    def post(self) -> Response:
-        """Stops a running app."""
-        req: StopAppRequestDTO = StopAppRequestDTO.Schema().load(data=request.get_json())
-        stop_app(req)
-        return "", 200
+@router.post("/resume")
+def resume_app(req: ResumeAppRequestDTO) -> str:
+    """Resumes a paused app.
+
+    May require a context switch (sigsvc server change) so it accepts a new set of ws_conn parameters.
+    """
+    biz.resume_app(req)
+    return ""
 
 
-class SearchAppsAcl(Resource):
-    def post(self) -> Response:
-        """Search apps helper: auto-complete lists."""
-        req: SearchAppsAclRequestDTO = SearchAppsAclRequestDTO.Schema().load(data=request.get_json())
-        res = search_apps_acl(req)
-        return SearchAppsAclResponseDTO.Schema().dump({"acl": res}), 200
+@router.post("/stop")
+def stop_app(req: StopAppRequestDTO) -> str:
+    """Stops a running app."""
+    biz.stop_app(req)
+    return ""
 
 
-class SearchApps(Resource):
-    def post(self) -> Response:
-        """Search apps."""
-        req: SearchAppsRequestDTO = SearchAppsRequestDTO.Schema().load(data=request.get_json())
-        res = search_apps(req)
-        return SearchAppsResponseDTO.Schema().dump({"apps": res}), 200
+@router.post("/search/acl")
+def search_apps_acl(req: SearchAppsAclRequestDTO) -> SearchAppsAclResponseDTO:
+    """Search apps helper: auto-complete lists."""
+    return SearchAppsAclResponseDTO(acl=biz.search_apps_acl(req))
+
+
+@router.post("/search")
+def search_apps(req: SearchAppsRequestDTO) -> SearchAppsResponseDTO:
+    """Search apps."""
+    return SearchAppsResponseDTO(apps=biz.search_apps(req))

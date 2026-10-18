@@ -13,12 +13,15 @@ from sqlalchemy import (
     Text,
     cast,
     exists,
+    false,
     func,
     lateral,
     select,
+    true,
 )
 from sqlalchemy.orm import contains_eager
 
+from appsvc.biz import sqldb
 from appsvc.biz.dto import (
     DEFAULT_AGE_MODE,
     AgeMode,
@@ -51,7 +54,6 @@ from appsvc.biz.models import (
     UserDAO,
     UsersDcsDAO,
 )
-from appsvc.biz.sqldb import sqldb
 from appsvc.services import jukeboxsvc
 from appsvc.services.dto.jukeboxsvc import (
     AppPlatform,
@@ -107,21 +109,28 @@ def age_mode_filter_expr(age_mode: AgeMode) -> ColumnElement[bool]:
             & ~AppDAO.tags.contains(cast([TAG_MATURE], ARRAY(Text())))
         )
     elif age_mode == AgeMode.ADULT:
-        return True
+        return true()
     else:
-        return False
+        return false()
 
 
 def get_app_release(release_uuid: str) -> AppReleaseDetails:
     # support "human-readable" urls (using games.releases.id instead of uuid)
-    filter_by_field = AppReleaseDAO.uuid if len(release_uuid) == 36 else AppReleaseDAO.id
-    filter_by = [filter_by_field == release_uuid, AppReleaseDAO.is_visible.is_(True)]
+    if len(release_uuid) == 36:
+        filter_by_id = AppReleaseDAO.uuid == release_uuid
+    elif release_uuid.isdigit():
+        filter_by_id = AppReleaseDAO.id == int(release_uuid)
+    else:
+        raise AppReleaseNotFoundException
+    filter_by = [filter_by_id, AppReleaseDAO.is_visible.is_(True)]
     r = AppReleaseDAO.query.filter(*filter_by).first()
     if not r:
         raise AppReleaseNotFoundException
     # fetch company name
     for c in r.companies:
         company_dao = AppCompanyDAO.query.filter_by(id=c["id"]).first()
+        if company_dao is None:
+            raise LookupError(f"company {c['id']} not found")
         c["name"] = company_dao.name
     # norm refs
     for k, v in r.game.refs.items():
@@ -130,21 +139,29 @@ def get_app_release(release_uuid: str) -> AppReleaseDetails:
     return AppReleaseDetails(
         addl_artifacts=r.game.addl_artifacts,
         alternative_names=r.game.alternative_names,
-        app_reqs=AppReleaseDetails.AppReqs.Schema().load(r.app_reqs),
-        companies=r.companies,
-        distro=AppReleaseDetails.Distro.Schema().load(r.distro),
+        app_reqs=AppReleaseDetails.AppReqs.model_validate(r.app_reqs),
+        companies=[AppReleaseDetails.Company.model_validate(c) for c in r.companies],
+        distro=AppReleaseDetails.Distro.model_validate(r.distro),
         esrb_rating=r.game.esrb_rating,
         id=r.id,
-        igdb=AppReleaseDetails.IgdbDescr.Schema().load(r.game.igdb),
+        igdb=AppReleaseDetails.IgdbDescr.model_validate(r.game.igdb),
         is_visible=r.is_visible,
         lang=r.lang,
         long_descr=r.game.long_descr,
-        media_assets=AppReleaseDetails.MediaAssets.Schema().load(r.game.media_assets),
-        media_assets_localized=AppReleaseDetails.MediaAssets.Schema().load(r.media_assets) if r.media_assets else None,
+        media_assets=AppReleaseDetails.MediaAssets.model_validate(r.game.media_assets),
+        media_assets_localized=(
+            AppReleaseDetails.MediaAssets.model_validate(r.media_assets) if r.media_assets else None
+        ),
         name=r.name,
-        platform=r.platform,
-        refs=AppReleaseDetails.GameRefs.Schema().load(r.game.refs),
-        runner=AppReleaseDetails.Runner.Schema().load(r.runner),
+        platform=AppReleaseDetails.AppPlatform(
+            id=r.platform.id,
+            name=r.platform.name,
+            abbreviation=r.platform.abbreviation,
+            alternative_name=r.platform.alternative_name,
+            slug=r.platform.slug,
+        ),
+        refs=AppReleaseDetails.GameRefs.model_validate(r.game.refs),
+        runner=AppReleaseDetails.Runner.model_validate(r.runner),
         short_descr=r.game.short_descr,
         uuid=r.uuid,
         year_released=r.year_released,
@@ -311,6 +328,8 @@ def get_age_mode(user_id: int | None) -> AgeMode:
         return age_mode
     now_date = datetime.datetime.now().date()
     current_user = sqldb.session.query(UserDAO).filter(UserDAO.id == user_id).first()
+    if current_user is None:
+        return age_mode
     age = relativedelta(now_date, current_user.dob).years
     if age < 13:
         age_mode = AgeMode.KID
@@ -340,7 +359,7 @@ def search_apps_acl(req: SearchAppsAclRequestDTO) -> list[str]:
     )
     if req.app_name:
         q_base = q_base.filter(AppReleaseDAO.name.ilike(f"%{req.app_name}%"))
-    res = [ar[0] for ar in q_base.with_entities(AppReleaseDAO.name).limit(APPS_ACL_SEARCH_LIMIT).all()]
+    res = [ar.name for ar in q_base.with_entities(AppReleaseDAO.name).limit(APPS_ACL_SEARCH_LIMIT).all()]
     return res
 
 
@@ -392,7 +411,7 @@ def search_by_my_stuff(req: SearchAppsRequestDTO) -> list[AppReleaseDAO]:
     user = sqldb.session.query(UserDAO).filter(UserDAO.id == req.user_id).first()
     if not user or not user.apps_lib:
         return []
-    apps_lib: AppsLib = AppsLib.Schema().load(user.apps_lib)
+    apps_lib = AppsLib.model_validate(user.apps_lib)
     if req.my_stuff == MyStuffType.FAVORITES:
         release_ids = apps_lib.favorite_games
     elif req.my_stuff == MyStuffType.RECENTLY_PLAYED:
@@ -440,7 +459,7 @@ def search_apps(req: SearchAppsRequestDTO) -> list[SearchAppsResponseItem]:
                 r.media_assets["cover"]["image_id"] if r.media_assets else r.game.media_assets["cover"]["image_id"]
             ),
             esrb_rating=r.game.esrb_rating,
-            id=r.id,
+            id=str(r.id),
             lang=r.lang,
             name=r.name,
             slug=r.game.igdb["slug"],

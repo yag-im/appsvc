@@ -2,7 +2,7 @@ import logging
 import os
 
 from gunicorn.arbiter import Arbiter
-from gunicorn.workers.gthread import ThreadWorker
+from gunicorn.workers.base import Worker
 from opentelemetry import trace
 from opentelemetry._logs import set_logger_provider
 from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
@@ -24,7 +24,7 @@ OTEL_SERVICE_INSTANCE_ID = os.environ.get("OTEL_SERVICE_INSTANCE_ID")
 OTEL_TRACE_ENABLED = os.environ.get("OTEL_TRACE_ENABLED", "false").lower() == "true"
 
 
-def post_fork(server: Arbiter, worker: ThreadWorker) -> None:
+def post_fork(server: Arbiter, worker: Worker) -> None:
     if not OTEL_TRACE_ENABLED:
         return
 
