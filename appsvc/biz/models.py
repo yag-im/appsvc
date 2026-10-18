@@ -7,6 +7,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    Uuid,
 )
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
@@ -76,7 +77,7 @@ class AppReleaseDAO(sqldb.Model):
     runner: Mapped[dict[str, t.Any]] = mapped_column(JSONB)
     uuid: Mapped[str] = mapped_column(String)
     # legacy uuid; keeping it because it's a part of app path in appstor for older releases
-    uuidv4: Mapped[str | None] = mapped_column(String)
+    uuidv4: Mapped[str | None] = mapped_column(Uuid(as_uuid=False))
     year_released: Mapped[int | None] = mapped_column(Integer)
 
 
