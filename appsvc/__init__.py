@@ -21,7 +21,7 @@ def create_app() -> FastAPI:
         app,
         url=f"postgresql+psycopg://{os.environ['SQLDB_USERNAME']}:{os.environ['SQLDB_PASSWORD']}@{os.environ['SQLDB_HOST']}:\
         {os.environ['SQLDB_PORT']}/{os.environ['SQLDB_DBNAME']}",
-        engine_options=json.loads(os.environ.get("SQLALCHEMY_ENGINE_OPTIONS", "{}")),
+        engine_options=json.loads(os.environ.get("SQLDB_ENGINE_OPTIONS", "{}")),
     )
     errors.init_app(app)
 
